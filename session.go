@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/goexpect"
 	"golang.org/x/term"
 )
 
@@ -41,7 +40,7 @@ const (
 )
 
 type Session struct {
-	child          *expect.GExpect
+	child          *GExpect
 	nodes          []Node
 	timeout        time.Duration
 	defaultTimeout time.Duration
@@ -142,11 +141,11 @@ func (s *Session) actionHandler(action string) error {
 	s.logger.outputWriter.Write([]byte(action + "\n"))
 	if s.child == nil {
 		s.logger.debugLog.Message(fmt.Sprintf("Spawning by: %s", action))
-		exp, _, err := expect.Spawn(action, s.timeout,
-			expect.Verbose(true),
-			expect.VerboseWriter(s.logger.debugLog),
-			expect.Tee(NoCloseWriter{s.logger.outputWriter}),
-			expect.CheckDuration(50*time.Millisecond),
+		exp, _, err := Spawn(action, s.timeout,
+			Verbose(true),
+			VerboseWriter(s.logger.debugLog),
+			Tee(NoCloseWriter{s.logger.outputWriter}),
+			CheckDuration(50*time.Millisecond),
 		)
 		if err != nil {
 			return err
@@ -270,7 +269,7 @@ func (s *Session) Do(action string, rows []ExpectRow, timeout time.Duration) (in
 	}
 
 	for {
-		var cs []expect.Caser
+		var cs []Caser
 		var normalizedPatterns []string
 
 		for _, row := range rows {
@@ -285,9 +284,9 @@ func (s *Session) Do(action string, rows []ExpectRow, timeout time.Duration) (in
 				return nil, fmt.Errorf("invalid regex %q: %v", pattern, err)
 			}
 
-			cs = append(cs, &expect.Case{
+			cs = append(cs, &Case{
 				R: re,
-				T: expect.OK(),
+				T: OK(),
 			})
 		}
 
@@ -631,10 +630,10 @@ func (s *Session) SudoI() (*Session, error) {
 		return nil, err
 	}
 
-	cs := []expect.Caser{
-		&expect.Case{R: regexp.MustCompile(suNode.GetWaitPrompt()), T: expect.OK()},
-		&expect.Case{R: regexp.MustCompile(currentNode.GetWaitPrompt()), T: expect.OK()},
-		&expect.Case{R: regexp.MustCompile(`\[sudo\] password for`), T: expect.OK()},
+	cs := []Caser{
+		&Case{R: regexp.MustCompile(suNode.GetWaitPrompt()), T: OK()},
+		&Case{R: regexp.MustCompile(currentNode.GetWaitPrompt()), T: OK()},
+		&Case{R: regexp.MustCompile(`\[sudo\] password for`), T: OK()},
 	}
 
 	out, _, idx, err := s.child.ExpectSwitchCase(cs, s.timeout)

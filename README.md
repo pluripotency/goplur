@@ -1,6 +1,12 @@
+[日本語版 (Japanese Version)](./README_jp.md)
+
 # goplur
 
-`goplur` is a Go-based CLI automation tool designed for managing interactive sessions and performing idempotent shell operations across various platforms. Built on top of `github.com/google/goexpect`, it is the Go version of the Python `plur` library.
+> [!NOTE]
+> **Acknowledgment & Appreciation:**
+> The core terminal interaction and expectation matching engine in `goplur` is built upon code extracted and simplified from the [google/goexpect](https://github.com/google/goexpect) library. We would like to express our deep gratitude to the original authors of `goexpect` for their wonderful work. The extracted subset is now inlined directly inside this project (`goplur/goexpect.go`), achieving near-instantaneous execution speed (e.g., resolving the default 2-second polling latency) and removing heavy external dependencies (such as gRPC and Go SSH client).
+
+`goplur` is a Go-based CLI automation tool designed for managing interactive sessions and performing idempotent shell operations across various platforms. Originally built on top of `github.com/google/goexpect`, it is the Go version of the Python `plur` library.
 
 It provides a high-level API for automating SSH, Telnet, and local Bash sessions, matching expectations, elevating privileges dynamically, and writing logs safely.
 
