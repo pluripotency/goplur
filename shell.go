@@ -28,7 +28,7 @@ func (s *Session) Wget(url, option string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, _, err = s.child.Expect(regexp.MustCompile(s.CurrentNode().WaitPrompt), s.timeout)
+	_, _, err = s.child.Expect(regexp.MustCompile(s.CurrentNode().GetWaitPrompt()), s.timeout)
 	if err != nil {
 		return false, err
 	}
@@ -69,7 +69,7 @@ func (s *Session) YumInstall(params YumParams) error {
 		if err != nil {
 			return err
 		}
-		_, _, err = s.child.Expect(regexp.MustCompile(s.CurrentNode().WaitPrompt), s.timeout)
+		_, _, err = s.child.Expect(regexp.MustCompile(s.CurrentNode().GetWaitPrompt()), s.timeout)
 		if err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func (s *Session) YumInstall(params YumParams) error {
 		if err != nil {
 			return err
 		}
-		_, _, err = s.child.Expect(regexp.MustCompile(s.CurrentNode().WaitPrompt), s.timeout)
+		_, _, err = s.child.Expect(regexp.MustCompile(s.CurrentNode().GetWaitPrompt()), s.timeout)
 		if err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ func (s *Session) YumInstall(params YumParams) error {
 		if err != nil {
 			return err
 		}
-		_, _, err = s.child.Expect(regexp.MustCompile(s.CurrentNode().WaitPrompt), s.timeout)
+		_, _, err = s.child.Expect(regexp.MustCompile(s.CurrentNode().GetWaitPrompt()), s.timeout)
 		if err != nil {
 			return err
 		}

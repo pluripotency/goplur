@@ -220,11 +220,11 @@ func (dl *DebugLogger) onAction(s *Session, action string) {
 			name string
 			val  string
 		}{
-			{"hostname", node.Hostname},
-			{"access_ip", node.AccessIP},
-			{"username", node.Username},
-			{"waitprompt", node.WaitPrompt},
-			{"platform", node.Platform},
+			{"hostname", node.GetHostname()},
+			{"access_ip", node.GetAccessIP()},
+			{"username", node.GetUsername()},
+			{"waitprompt", node.GetWaitPrompt()},
+			{"platform", node.GetPlatform()},
 		}
 		for _, attr := range attrs {
 			dl.writeLine(dl.colorize(fmt.Sprintf("         %8s: %s", attr.name, attr.val), ColorLightCyan))

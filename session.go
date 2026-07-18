@@ -42,7 +42,7 @@ const (
 
 type Session struct {
 	child          *expect.GExpect
-	nodes          []*Node
+	nodes          []Node
 	timeout        time.Duration
 	defaultTimeout time.Duration
 	logger         *SessionLogger
@@ -84,7 +84,7 @@ func SelectLogParams(envStr string) LogParams {
 	}
 }
 
-func NewSession(node *Node, logParams *LogParams) *Session {
+func NewSession(node Node, logParams *LogParams) *Session {
 	var lp LogParams
 	if logParams != nil {
 		lp = *logParams
@@ -105,7 +105,7 @@ func NewSession(node *Node, logParams *LogParams) *Session {
 	return s
 }
 
-func (s *Session) PushNode(node *Node) {
+func (s *Session) PushNode(node Node) {
 	s.nodes = append(s.nodes, node)
 }
 
@@ -115,7 +115,7 @@ func (s *Session) PopNode() {
 	}
 }
 
-func (s *Session) CurrentNode() *Node {
+func (s *Session) CurrentNode() Node {
 	if len(s.nodes) == 0 {
 		return nil
 	}
@@ -171,7 +171,7 @@ func (s *Session) executeReaction(row ExpectRow, matches []string, out string) (
 		s.logger.debugLog.atRowMethod("p_capture returns: child.before")
 		pattern := row.Pattern
 		if pattern == "" || pattern == "waitprompt" {
-			pattern = s.CurrentNode().WaitPrompt
+			pattern = s.CurrentNode().GetWaitPrompt()
 		}
 		re, err := regexp.Compile(pattern)
 		if err != nil {
@@ -204,7 +204,7 @@ func (s *Session) executeReaction(row ExpectRow, matches []string, out string) (
 		if str, ok := row.Arg.(string); ok && str != "" {
 			password = str
 		} else {
-			password = s.CurrentNode().Password
+			password = s.CurrentNode().GetPassword()
 		}
 
 		err := s.child.Send(password + "\n")
@@ -274,7 +274,7 @@ func (s *Session) Do(action string, rows []ExpectRow, timeout time.Duration) (in
 		for _, row := range rows {
 			pattern := row.Pattern
 			if pattern == "" || pattern == "waitprompt" {
-				pattern = s.CurrentNode().WaitPrompt
+				pattern = s.CurrentNode().GetWaitPrompt()
 			}
 			normalizedPatterns = append(normalizedPatterns, pattern)
 
@@ -355,13 +355,13 @@ func (s *Session) langC() error {
 
 func (s *Session) platformRun() error {
 	node := s.CurrentNode()
-	if node.Platform == "" {
+	if node.GetPlatform() == "" {
 		return nil
 	}
 
 	isRhelAlmaCentos := false
 	for _, p := range []string{"almalinux8", "almalinux9", "centos8", "centos9"} {
-		if node.Platform == p {
+		if node.GetPlatform() == p {
 			isRhelAlmaCentos = true
 			break
 		}
@@ -376,7 +376,7 @@ func (s *Session) platformRun() error {
 		return err
 	}
 
-	matched, _ := regexp.MatchString("centos|rhel|fedora|ubuntu", node.Platform)
+	matched, _ := regexp.MatchString("centos|rhel|fedora|ubuntu", node.GetPlatform())
 	if matched {
 		return s.langC()
 	}
@@ -384,9 +384,6 @@ func (s *Session) platformRun() error {
 }
 
 func (s *Session) Bash() (*Session, error) {
-	node := s.CurrentNode()
-	node.ExitCommand = "exit"
-
 	_, err := s.Do("bash", []ExpectRow{
 		{Pattern: "", Reaction: ReactionCapture},
 	}, s.timeout)
@@ -416,29 +413,35 @@ func (s *Session) expectsOnLogin(password string) []ExpectRow {
 
 func (s *Session) Ssh() (*Session, error) {
 	node := s.CurrentNode()
-	node.ExitCommand = "exit"
 
-	accessTarget := node.AccessIP
+	accessTarget := node.GetAccessIP()
 	if accessTarget == "" {
-		accessTarget = node.Hostname
+		accessTarget = node.GetHostname()
 	}
 	if accessTarget == "" {
 		return nil, fmt.Errorf("ssh: access ip or hostname is required")
 	}
 
-	if node.Username == "" {
+	if node.GetUsername() == "" {
 		return nil, fmt.Errorf("ssh: username is required")
 	}
 
-	action := fmt.Sprintf("ssh %s@%s", node.Username, accessTarget)
-	if node.SSHPort != 0 && node.SSHPort != 22 {
-		action += fmt.Sprintf(" -p %d", node.SSHPort)
-	}
-	if node.SSHOptions != "" {
-		action += " " + node.SSHOptions
+	action := fmt.Sprintf("ssh %s@%s", node.GetUsername(), accessTarget)
+	if sshNode, ok := node.(interface {
+		GetSSHPort() int
+		GetSSHOptions() string
+	}); ok {
+		port := sshNode.GetSSHPort()
+		if port != 0 && port != 22 {
+			action += fmt.Sprintf(" -p %d", port)
+		}
+		opts := sshNode.GetSSHOptions()
+		if opts != "" {
+			action += " " + opts
+		}
 	}
 
-	_, err := s.Do(action, s.expectsOnLogin(node.Password), s.timeout)
+	_, err := s.Do(action, s.expectsOnLogin(node.GetPassword()), s.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -452,20 +455,32 @@ func (s *Session) Ssh() (*Session, error) {
 
 func (s *Session) Telnet() (*Session, error) {
 	node := s.CurrentNode()
-	node.ExitCommand = "exit"
 
-	accessTarget := node.AccessIP
+	accessTarget := node.GetAccessIP()
 	if accessTarget == "" {
-		accessTarget = node.Hostname
+		accessTarget = node.GetHostname()
 	}
 	if accessTarget == "" {
 		return nil, fmt.Errorf("telnet: access ip or hostname is required")
 	}
 
-	action := fmt.Sprintf("telnet %s", accessTarget)
+	port := 23
+	if telnetNode, ok := node.(interface {
+		GetTelnetPort() int
+	}); ok {
+		tPort := telnetNode.GetTelnetPort()
+		if tPort != 0 {
+			port = tPort
+		}
+	}
 
-	rows := s.expectsOnLogin(node.Password)
-	loginRow := ExpectRow{Pattern: `[Ll]ogin:`, Reaction: ReactionSendLine, Arg: node.Username, Label: "Telnet login username"}
+	action := fmt.Sprintf("telnet %s", accessTarget)
+	if port != 23 {
+		action += fmt.Sprintf(" %d", port)
+	}
+
+	rows := s.expectsOnLogin(node.GetPassword())
+	loginRow := ExpectRow{Pattern: `[Ll]ogin:`, Reaction: ReactionSendLine, Arg: node.GetUsername(), Label: "Telnet login username"}
 	rows = append([]ExpectRow{loginRow}, rows...)
 
 	_, err := s.Do(action, rows, s.timeout)
@@ -483,11 +498,11 @@ func (s *Session) Telnet() (*Session, error) {
 func (s *Session) findRootPassword() string {
 	for i := len(s.nodes) - 1; i >= 0; i-- {
 		node := s.nodes[i]
-		if node.RootPassword != "" {
-			return node.RootPassword
+		if node.GetRootPassword() != "" {
+			return node.GetRootPassword()
 		}
-		if node.Username == "root" && node.Password != "" {
-			return node.Password
+		if node.GetUsername() == "root" && node.GetPassword() != "" {
+			return node.GetPassword()
 		}
 	}
 	return ""
@@ -498,27 +513,28 @@ func (s *Session) Su(username string) (*Session, error) {
 		username = "root"
 	}
 	currentNode := s.CurrentNode()
-	if currentNode.Username == username {
+	if currentNode.GetUsername() == username {
 		return s, nil
 	}
 
-	suNode := &Node{
-		Hostname:     currentNode.Hostname,
+	suNode := &BaseNode{
+		Hostname:     currentNode.GetHostname(),
 		Username:     username,
-		Platform:     currentNode.Platform,
-		RootPassword: currentNode.RootPassword,
-		Password:     currentNode.Password,
-		WaitPrompt:   GetLinuxWaitprompt(currentNode.Platform, currentNode.Hostname, username),
+		Platform:     currentNode.GetPlatform(),
+		RootPassword: currentNode.GetRootPassword(),
+		Password:     currentNode.GetPassword(),
+		WaitPrompt:   GetLinuxWaitprompt(currentNode.GetPlatform(), currentNode.GetHostname(), username),
+		ExitCommand:  "exit",
 	}
 
 	action := "su - " + username
 
 	rows := []ExpectRow{
-		{Pattern: suNode.WaitPrompt, Reaction: ReactionSuccess, Arg: true, Label: "SU target prompt"},
-		{Pattern: currentNode.WaitPrompt, Reaction: ReactionSuccess, Arg: false, Label: "SU current prompt (failure)"},
+		{Pattern: suNode.GetWaitPrompt(), Reaction: ReactionSuccess, Arg: true, Label: "SU target prompt"},
+		{Pattern: currentNode.GetWaitPrompt(), Reaction: ReactionSuccess, Arg: false, Label: "SU current prompt (failure)"},
 	}
 
-	if currentNode.Username == "root" {
+	if currentNode.GetUsername() == "root" {
 		res, err := s.Do(action, rows, s.timeout)
 		if err != nil {
 			return nil, err
@@ -558,7 +574,7 @@ func (s *Session) Su(username string) (*Session, error) {
 
 func (s *Session) addSudoer(username string) error {
 	currentNode := s.CurrentNode()
-	if currentNode.Username == "root" {
+	if currentNode.GetUsername() == "root" {
 		_, err := s.Run(fmt.Sprintf(`echo "%s ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/%s`, username, username))
 		return err
 	}
@@ -576,20 +592,21 @@ func (s *Session) addSudoer(username string) error {
 
 func (s *Session) SudoI() (*Session, error) {
 	currentNode := s.CurrentNode()
-	suNode := &Node{
-		Hostname:     currentNode.Hostname,
+	suNode := &BaseNode{
+		Hostname:     currentNode.GetHostname(),
 		Username:     "root",
-		Platform:     currentNode.Platform,
-		RootPassword: currentNode.RootPassword,
-		Password:     currentNode.Password,
-		WaitPrompt:   GetLinuxWaitprompt(currentNode.Platform, currentNode.Hostname, "root"),
+		Platform:     currentNode.GetPlatform(),
+		RootPassword: currentNode.GetRootPassword(),
+		Password:     currentNode.GetPassword(),
+		WaitPrompt:   GetLinuxWaitprompt(currentNode.GetPlatform(), currentNode.GetHostname(), "root"),
+		ExitCommand:  "exit",
 	}
 
-	if strings.HasPrefix(currentNode.Platform, "ubuntu") {
+	if strings.HasPrefix(currentNode.GetPlatform(), "ubuntu") {
 		rows := []ExpectRow{
-			{Pattern: suNode.WaitPrompt, Reaction: ReactionSuccess, Arg: true, Label: "Sudo elevation success"},
-			{Pattern: currentNode.WaitPrompt, Reaction: ReactionSuccess, Arg: false, Label: "Sudo elevation failure"},
-			{Pattern: `\[sudo\] password for`, Reaction: ReactionSendPass, Arg: currentNode.Password, Label: "Sudo password prompt"},
+			{Pattern: suNode.GetWaitPrompt(), Reaction: ReactionSuccess, Arg: true, Label: "Sudo elevation success"},
+			{Pattern: currentNode.GetWaitPrompt(), Reaction: ReactionSuccess, Arg: false, Label: "Sudo elevation failure"},
+			{Pattern: `\[sudo\] password for`, Reaction: ReactionSendPass, Arg: currentNode.GetPassword(), Label: "Sudo password prompt"},
 			{Pattern: `Sorry, try again.+password for`, Reaction: ReactionGetPass, Label: "Sudo password manual retry"},
 		}
 		res, err := s.Do("sudo -i", rows, s.timeout)
@@ -613,8 +630,8 @@ func (s *Session) SudoI() (*Session, error) {
 	}
 
 	cs := []expect.Caser{
-		&expect.Case{R: regexp.MustCompile(suNode.WaitPrompt), T: expect.OK()},
-		&expect.Case{R: regexp.MustCompile(currentNode.WaitPrompt), T: expect.OK()},
+		&expect.Case{R: regexp.MustCompile(suNode.GetWaitPrompt()), T: expect.OK()},
+		&expect.Case{R: regexp.MustCompile(currentNode.GetWaitPrompt()), T: expect.OK()},
 		&expect.Case{R: regexp.MustCompile(`\[sudo\] password for`), T: expect.OK()},
 	}
 
@@ -639,12 +656,12 @@ func (s *Session) SudoI() (*Session, error) {
 		if err != nil {
 			return nil, err
 		}
-		_, _, err = s.child.Expect(regexp.MustCompile(currentNode.WaitPrompt), s.timeout)
+		_, _, err = s.child.Expect(regexp.MustCompile(currentNode.GetWaitPrompt()), s.timeout)
 		if err != nil {
 			return nil, err
 		}
 
-		err = s.addSudoer(currentNode.Username)
+		err = s.addSudoer(currentNode.GetUsername())
 		if err != nil {
 			return nil, err
 		}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func RunSession(node *Node, loginMethod string, logParams *LogParams, fn func(s *Session) error) error {
+func RunSession(node Node, loginMethod string, logParams *LogParams, fn func(s *Session) error) error {
 	s := NewSession(node, logParams)
 	defer s.Close()
 
@@ -29,10 +29,7 @@ func RunSession(node *Node, loginMethod string, logParams *LogParams, fn func(s 
 	}
 
 	currentNode := s.CurrentNode()
-	exitCmd := currentNode.ExitCommand
-	if exitCmd == "" {
-		exitCmd = "exit"
-	}
+	exitCmd := currentNode.GetExitCommand()
 
 	if len(s.nodes) == 1 {
 		rows := []ExpectRow{
@@ -47,15 +44,15 @@ func RunSession(node *Node, loginMethod string, logParams *LogParams, fn func(s 
 	return nil
 }
 
-func RunTelnet(node *Node, logParams *LogParams, fn func(s *Session) error) error {
+func RunTelnet(node Node, logParams *LogParams, fn func(s *Session) error) error {
 	return RunSession(node, "telnet", logParams, fn)
 }
 
-func RunSsh(node *Node, logParams *LogParams, fn func(s *Session) error) error {
+func RunSsh(node Node, logParams *LogParams, fn func(s *Session) error) error {
 	return RunSession(node, "ssh", logParams, fn)
 }
 
-func RunBash(node *Node, logParams *LogParams, fn func(s *Session) error) error {
+func RunBash(node Node, logParams *LogParams, fn func(s *Session) error) error {
 	if node == nil {
 		node = NewMeNode()
 	}
@@ -64,7 +61,7 @@ func RunBash(node *Node, logParams *LogParams, fn func(s *Session) error) error 
 
 func Sudo(s *Session, fn func(s *Session) error) error {
 	sudoOn := false
-	if s.CurrentNode().Username != "root" {
+	if s.CurrentNode().GetUsername() != "root" {
 		sudoOn = true
 		_, err := s.SudoI()
 		if err != nil {
@@ -88,7 +85,7 @@ func Su(s *Session, username string, fn func(s *Session) error) error {
 		username = "root"
 	}
 	suOn := false
-	if s.CurrentNode().Username != username {
+	if s.CurrentNode().GetUsername() != username {
 		suOn = true
 		_, err := s.Su(username)
 		if err != nil {

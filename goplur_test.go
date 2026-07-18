@@ -127,3 +127,40 @@ func TestSessionWrap(t *testing.T) {
 		t.Errorf("expected file to contain wrap test, got %q", string(data))
 	}
 }
+
+func TestNewNodeTypes(t *testing.T) {
+	// Test SshNode
+	sshNode := NewSshNode("ssh-host", "10.0.0.1", "ssh-user", "ssh-pass", "ubuntu")
+	if sshNode.GetHostname() != "ssh-host" {
+		t.Errorf("expected ssh hostname 'ssh-host', got %q", sshNode.GetHostname())
+	}
+	if sshNode.GetAccessIP() != "10.0.0.1" {
+		t.Errorf("expected ssh access ip '10.0.0.1', got %q", sshNode.GetAccessIP())
+	}
+	if sshNode.SSHPort != 22 {
+		t.Errorf("expected default ssh port 22, got %d", sshNode.SSHPort)
+	}
+	if sshNode.GetExitCommand() != "exit" {
+		t.Errorf("expected default exit command 'exit', got %q", sshNode.GetExitCommand())
+	}
+
+	// Test TelnetNode
+	telnetNode := NewTelnetNode("telnet-host", "10.0.0.2", "telnet-user", "telnet-pass", "centos7")
+	if telnetNode.GetHostname() != "telnet-host" {
+		t.Errorf("expected telnet hostname 'telnet-host', got %q", telnetNode.GetHostname())
+	}
+	if telnetNode.TelnetPort != 23 {
+		t.Errorf("expected default telnet port 23, got %d", telnetNode.TelnetPort)
+	}
+
+	// Test custom values
+	sshNode.SSHPort = 2222
+	if sshNode.GetSSHPort() != 2222 {
+		t.Errorf("expected custom ssh port 2222, got %d", sshNode.GetSSHPort())
+	}
+
+	telnetNode.TelnetPort = 2323
+	if telnetNode.GetTelnetPort() != 2323 {
+		t.Errorf("expected custom telnet port 2323, got %d", telnetNode.GetTelnetPort())
+	}
+}
