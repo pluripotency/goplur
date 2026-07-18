@@ -146,6 +146,7 @@ func (s *Session) actionHandler(action string) error {
 			expect.Verbose(true),
 			expect.VerboseWriter(s.logger.debugLog),
 			expect.Tee(NoCloseWriter{s.logger.outputWriter}),
+			expect.CheckDuration(50*time.Millisecond),
 		)
 		if err != nil {
 			return err

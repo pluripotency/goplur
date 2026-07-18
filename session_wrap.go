@@ -32,10 +32,7 @@ func RunSession(node Node, loginMethod string, logParams *LogParams, fn func(s *
 	exitCmd := currentNode.GetExitCommand()
 
 	if len(s.nodes) == 1 {
-		rows := []ExpectRow{
-			{Pattern: "EOF", Reaction: ReactionSuccess, Arg: nil},
-		}
-		s.Do(exitCmd, rows, s.timeout)
+		s.actionHandler(exitCmd)
 	} else {
 		s.PopNode()
 		s.Run(exitCmd)
