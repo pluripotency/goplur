@@ -141,7 +141,11 @@ func (s *Session) Close() {
 func (s *Session) actionHandler(action string) error {
 	if s.child == nil {
 		s.logger.debugLog.Message(fmt.Sprintf("Spawning by: %s", action))
-		exp, _, err := expect.Spawn(action, s.timeout, expect.Verbose(true), expect.VerboseWriter(s.logger.outputWriter))
+		exp, _, err := expect.Spawn(action, s.timeout,
+			expect.Verbose(true),
+			expect.VerboseWriter(s.logger.debugLog),
+			expect.Tee(NoCloseWriter{s.logger.outputWriter}),
+		)
 		if err != nil {
 			return err
 		}

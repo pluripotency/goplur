@@ -178,13 +178,30 @@ func (dl *DebugLogger) nowDebug() string {
 	return time.Now().Format("2006/01/02 15:04:05")
 }
 
-func (dl *DebugLogger) writeLine(msg string) {
+func (dl *DebugLogger) Write(p []byte) (n int, err error) {
 	if dl.f != nil {
-		dl.f.Write([]byte(msg + "\n"))
+		dl.f.Write(p)
 	}
 	if dl.af != nil {
-		dl.af.Write([]byte(msg + "\n"))
+		dl.af.Write(p)
 	}
+	return len(p), nil
+}
+
+func (dl *DebugLogger) writeLine(msg string) {
+	dl.Write([]byte(msg + "\n"))
+}
+
+type NoCloseWriter struct {
+	W io.Writer
+}
+
+func (ncw NoCloseWriter) Write(p []byte) (n int, err error) {
+	return ncw.W.Write(p)
+}
+
+func (ncw NoCloseWriter) Close() error {
+	return nil
 }
 
 func (dl *DebugLogger) Message(msg string) {
