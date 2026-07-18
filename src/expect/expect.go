@@ -1,4 +1,4 @@
-package goplur
+package expect
 
 import (
 	"bytes"

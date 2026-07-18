@@ -1,4 +1,4 @@
-package goplur
+package session
 
 import (
 	"fmt"
@@ -51,7 +51,7 @@ func NewForkWriter(path string, appendMode bool) (*ForkWriter, error) {
 
 func (fw *ForkWriter) Write(p []byte) (n int, err error) {
 	fw.mu.Lock()
-	defer fw.mu.Unlock()
+	fw.mu.Unlock()
 	for _, f := range fw.files {
 		f.Write(p)
 	}
@@ -60,7 +60,7 @@ func (fw *ForkWriter) Write(p []byte) (n int, err error) {
 
 func (fw *ForkWriter) Flush() {
 	fw.mu.Lock()
-	defer fw.mu.Unlock()
+	fw.mu.Unlock()
 	for _, f := range fw.files {
 		f.Sync()
 	}
@@ -68,7 +68,7 @@ func (fw *ForkWriter) Flush() {
 
 func (fw *ForkWriter) Close() error {
 	fw.mu.Lock()
-	defer fw.mu.Unlock()
+	fw.mu.Unlock()
 	var lastErr error
 	for _, f := range fw.files {
 		f.Sync()

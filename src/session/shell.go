@@ -1,4 +1,4 @@
-package goplur
+package session
 
 import (
 	"fmt"

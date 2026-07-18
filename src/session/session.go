@@ -1,4 +1,4 @@
-package goplur
+package session
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	exp "goplur/src/expect"
+	nd "goplur/src/node"
 	"golang.org/x/term"
 )
 
@@ -40,8 +42,8 @@ const (
 )
 
 type Session struct {
-	child          *GExpect
-	nodes          []Node
+	child          *exp.GExpect
+	nodes          []nd.Node
 	timeout        time.Duration
 	defaultTimeout time.Duration
 	logger         *SessionLogger
@@ -83,7 +85,7 @@ func SelectLogParams(envStr string) LogParams {
 	}
 }
 
-func NewSession(node Node, logParams *LogParams) *Session {
+func NewSession(node nd.Node, logParams *LogParams) *Session {
 	var lp LogParams
 	if logParams != nil {
 		lp = *logParams
@@ -104,7 +106,7 @@ func NewSession(node Node, logParams *LogParams) *Session {
 	return s
 }
 
-func (s *Session) PushNode(node Node) {
+func (s *Session) PushNode(node nd.Node) {
 	s.nodes = append(s.nodes, node)
 }
 
@@ -114,7 +116,7 @@ func (s *Session) PopNode() {
 	}
 }
 
-func (s *Session) CurrentNode() Node {
+func (s *Session) CurrentNode() nd.Node {
 	if len(s.nodes) == 0 {
 		return nil
 	}
@@ -141,11 +143,11 @@ func (s *Session) actionHandler(action string) error {
 	s.logger.outputWriter.Write([]byte(action + "\n"))
 	if s.child == nil {
 		s.logger.debugLog.Message(fmt.Sprintf("Spawning by: %s", action))
-		exp, _, err := Spawn(action, s.timeout,
-			Verbose(true),
-			VerboseWriter(s.logger.debugLog),
-			Tee(NoCloseWriter{s.logger.outputWriter}),
-			CheckDuration(50*time.Millisecond),
+		exp, _, err := exp.Spawn(action, s.timeout,
+			exp.Verbose(true),
+			exp.VerboseWriter(s.logger.debugLog),
+			exp.Tee(NoCloseWriter{s.logger.outputWriter}),
+			exp.CheckDuration(50*time.Millisecond),
 		)
 		if err != nil {
 			return err
@@ -269,7 +271,7 @@ func (s *Session) Do(action string, rows []ExpectRow, timeout time.Duration) (in
 	}
 
 	for {
-		var cs []Caser
+		var cs []exp.Caser
 		var normalizedPatterns []string
 
 		for _, row := range rows {
@@ -284,9 +286,9 @@ func (s *Session) Do(action string, rows []ExpectRow, timeout time.Duration) (in
 				return nil, fmt.Errorf("invalid regex %q: %v", pattern, err)
 			}
 
-			cs = append(cs, &Case{
+			cs = append(cs, &exp.Case{
 				R: re,
-				T: OK(),
+				T: exp.OK(),
 			})
 		}
 
@@ -518,13 +520,13 @@ func (s *Session) Su(username string) (*Session, error) {
 		return s, nil
 	}
 
-	suNode := &BaseNode{
+	suNode := &nd.BaseNode{
 		Hostname:     currentNode.GetHostname(),
 		Username:     username,
 		Platform:     currentNode.GetPlatform(),
 		RootPassword: currentNode.GetRootPassword(),
 		Password:     currentNode.GetPassword(),
-		WaitPrompt:   GetLinuxWaitprompt(currentNode.GetPlatform(), currentNode.GetHostname(), username),
+		WaitPrompt:   nd.GetLinuxWaitprompt(currentNode.GetPlatform(), currentNode.GetHostname(), username),
 		ExitCommand:  "exit",
 	}
 
@@ -593,13 +595,13 @@ func (s *Session) addSudoer(username string) error {
 
 func (s *Session) SudoI() (*Session, error) {
 	currentNode := s.CurrentNode()
-	suNode := &BaseNode{
+	suNode := &nd.BaseNode{
 		Hostname:     currentNode.GetHostname(),
 		Username:     "root",
 		Platform:     currentNode.GetPlatform(),
 		RootPassword: currentNode.GetRootPassword(),
 		Password:     currentNode.GetPassword(),
-		WaitPrompt:   GetLinuxWaitprompt(currentNode.GetPlatform(), currentNode.GetHostname(), "root"),
+		WaitPrompt:   nd.GetLinuxWaitprompt(currentNode.GetPlatform(), currentNode.GetHostname(), "root"),
 		ExitCommand:  "exit",
 	}
 
@@ -630,10 +632,10 @@ func (s *Session) SudoI() (*Session, error) {
 		return nil, err
 	}
 
-	cs := []Caser{
-		&Case{R: regexp.MustCompile(suNode.GetWaitPrompt()), T: OK()},
-		&Case{R: regexp.MustCompile(currentNode.GetWaitPrompt()), T: OK()},
-		&Case{R: regexp.MustCompile(`\[sudo\] password for`), T: OK()},
+	cs := []exp.Caser{
+		&exp.Case{R: regexp.MustCompile(suNode.GetWaitPrompt()), T: exp.OK()},
+		&exp.Case{R: regexp.MustCompile(currentNode.GetWaitPrompt()), T: exp.OK()},
+		&exp.Case{R: regexp.MustCompile(`\[sudo\] password for`), T: exp.OK()},
 	}
 
 	out, _, idx, err := s.child.ExpectSwitchCase(cs, s.timeout)

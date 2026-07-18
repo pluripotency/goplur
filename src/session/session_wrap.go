@@ -1,11 +1,12 @@
-package goplur
+package session
 
 import (
 	"fmt"
+	nd "goplur/src/node"
 )
 
-func RunSession(node Node, loginMethod string, logParams *LogParams, fn func(s *Session) error) error {
-	s := NewSession(node, logParams)
+func RunSession(n nd.Node, loginMethod string, logParams *LogParams, fn func(s *Session) error) error {
+	s := NewSession(n, logParams)
 	defer s.Close()
 
 	var err error
@@ -41,19 +42,19 @@ func RunSession(node Node, loginMethod string, logParams *LogParams, fn func(s *
 	return nil
 }
 
-func RunTelnet(node Node, logParams *LogParams, fn func(s *Session) error) error {
-	return RunSession(node, "telnet", logParams, fn)
+func RunTelnet(n nd.Node, logParams *LogParams, fn func(s *Session) error) error {
+	return RunSession(n, "telnet", logParams, fn)
 }
 
-func RunSsh(node Node, logParams *LogParams, fn func(s *Session) error) error {
-	return RunSession(node, "ssh", logParams, fn)
+func RunSsh(n nd.Node, logParams *LogParams, fn func(s *Session) error) error {
+	return RunSession(n, "ssh", logParams, fn)
 }
 
-func RunBash(node Node, logParams *LogParams, fn func(s *Session) error) error {
-	if node == nil {
-		node = NewMeNode()
+func RunBash(n nd.Node, logParams *LogParams, fn func(s *Session) error) error {
+	if n == nil {
+		n = nd.NewMeNode()
 	}
-	return RunSession(node, "bash", logParams, fn)
+	return RunSession(n, "bash", logParams, fn)
 }
 
 func Sudo(s *Session, fn func(s *Session) error) error {
