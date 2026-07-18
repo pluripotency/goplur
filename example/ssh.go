@@ -12,6 +12,7 @@ import (
 func main() {
 	// Parse SSH parameters from flags or fallback to defaults
 	hostname := flag.String("host", "localhost", "Target SSH host")
+	accessIp := flag.String("ip", "127.0.0.1", "Target SSH ip")
 	username := flag.String("user", os.Getenv("USER"), "SSH username (defaults to current system user)")
 	password := flag.String("pass", "", "SSH password")
 	port := flag.Int("port", 22, "SSH port")
@@ -21,7 +22,7 @@ func main() {
 	log.Printf("Initializing SSH node for %s@%s:%d (Platform: %s)...", *username, *hostname, *port, *platform)
 
 	// Create SSH node configuration
-	node := goplur.NewSshNode(*hostname, *hostname, *username, *password, *platform)
+	node := goplur.NewSshNode(*hostname, *accessIp, *username, *password, *platform)
 	node.SSHPort = *port
 
 	// Start SSH session wrapper
