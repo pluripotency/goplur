@@ -139,6 +139,7 @@ func (s *Session) Close() {
 }
 
 func (s *Session) actionHandler(action string) error {
+	s.logger.outputWriter.Write([]byte(action + "\n"))
 	if s.child == nil {
 		s.logger.debugLog.Message(fmt.Sprintf("Spawning by: %s", action))
 		exp, _, err := expect.Spawn(action, s.timeout,
