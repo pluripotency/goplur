@@ -86,6 +86,10 @@ func SelectLogParams(envStr string) LogParams {
 	return session.SelectLogParams(envStr)
 }
 
+func DefaultLogParams() LogParams {
+	return session.DefaultLogParams()
+}
+
 func OK() func() (Tag, error) {
 	return expect.OK()
 }

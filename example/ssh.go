@@ -1,12 +1,9 @@
 //go:build ignore
 
-// This example demonstrates how to establish an SSH session using a local system user
-// and passwordless SSH key authentication.
+// This example demonstrates how to establish an SSH session using a local system user.
 //
-// Prerequisites:
-// 1. Configure passwordless SSH access to the target host beforehand using:
-//    ssh-copy-id <user>@<access_ip>
-// 2. Run this program, and enter the target hostname and access IP when prompted.
+// Usage:
+// Run this program, and enter the target hostname and access IP when prompted.
 package main
 
 import (
@@ -23,9 +20,8 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Println("Before running this example, please configure passwordless SSH access to the")
-	fmt.Println("target host using 'ssh-copy-id'. Once configured, simply provide the target")
-	fmt.Println("hostname and access IP address when prompted.")
+	fmt.Println("Starting SSH example. Enter the target hostname and access IP address")
+	fmt.Println("when prompted (defaults to localhost / 127.0.0.1).")
 	fmt.Println("--------------------------------------------------------------------------------")
 
 	fmt.Print("Enter target Hostname (e.g., myhost) [default: localhost]: ")
@@ -53,8 +49,9 @@ func main() {
 	node := goplur.NewSshNode(hostname, accessIp, username, password, platform)
 	node.SSHPort = port
 
+	logParams := goplur.DefaultLogParams()
 	// Start SSH session wrapper
-	err := goplur.RunSsh(node, nil, func(s *goplur.Session) error {
+	err := goplur.RunSsh(node, &logParams, func(s *goplur.Session) error {
 		log.Println("Successfully logged in via SSH!")
 
 		// Run standard command

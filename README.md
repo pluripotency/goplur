@@ -147,3 +147,12 @@ Available `LogParams` struct fields:
 - `DebugLogFilePath` / `DebugLogAppendPath`: Expectation matching, actions, and timings tracing.
 - `DebugColor`: Enable colored logging outputs.
 - `DeleteMtime` / `DeleteMtimeUnit`: Prunes older files inside the `LogDir` on launch (e.g., delete files older than 10 days).
+
+---
+
+## Important Notes & Caveats
+
+### SSH Authentication & Password Retry
+- **SSH Authentication Support**: `goplur` supports both public key authentication and password authentication (including interactive password entry via `ReactionGetPass` when a password is required or retried). Note that if the remote server enforces `PasswordAuthentication no`, failed public key authentication will exit with `Permission denied (publickey)`.
+- **Multi-line Regex Matching in Expect Patterns**: Go's `regexp` package does not match newline characters (`\n` or `\r\n`) with `.` by default unless the single-line flag `(?s)` is used. When SSH password authentication fails, the server emits `Permission denied, please try again.` followed by a newline and the next `password:` prompt. Multi-line patterns utilize `(?s)` (e.g., `(?s)Permission denied, please try again.+password:`) to ensure interactive password prompting (`ReactionGetPass`) is correctly triggered across line breaks.
+

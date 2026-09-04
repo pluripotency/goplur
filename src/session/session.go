@@ -404,10 +404,10 @@ func (s *Session) Bash() (*Session, error) {
 func (s *Session) expectsOnLogin(password string) []ExpectRow {
 	return []ExpectRow{
 		{Pattern: `Are you sure you want to continue connecting \(yes/no.+\?`, Reaction: ReactionSendLine, Arg: "yes", Label: "SSH confirmation"},
-		{Pattern: `[Pp]assword:`, Reaction: ReactionSendPass, Arg: password, Label: "Password prompt"},
-		{Pattern: `Permission denied, please try again.+password:`, Reaction: ReactionGetPass, Label: "Password retry"},
+		{Pattern: `(?s)Permission denied, please try again.+password:`, Reaction: ReactionGetPass, Label: "Password retry"},
 		{Pattern: `Permission denied \(publickey,`, Reaction: ReactionExit, Label: "SSH public key denied"},
 		{Pattern: `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`, Reaction: ReactionExit, Label: "SSH host key changed"},
+		{Pattern: `[Pp]assword:`, Reaction: ReactionSendPass, Arg: password, Label: "Password prompt"},
 		{Pattern: `ssh: Could not resolve hostname`, Reaction: ReactionExit, Label: "SSH hostname error"},
 		{Pattern: `ssh: connect to host `, Reaction: ReactionExit, Label: "SSH connection error"},
 		{Pattern: "", Reaction: ReactionCapture, Label: "Prompt capture"},

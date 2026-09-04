@@ -22,6 +22,24 @@ type LogParams struct {
 	DeleteMtimeUnit     string `json:"delete_mtime_unit"` // "sec", "min", "hour", "day"
 }
 
+// DefaultLogParams returns the default LogParams configuration.
+func DefaultLogParams() LogParams {
+	now := time.Now()
+	ymd := now.Format("20060102")
+	hmsF := now.Format("150405_000")
+	logDir := "/tmp/goplur_log"
+
+	return LogParams{
+		LogDir:            logDir,
+		EnableStdout:      true,
+		OutputLogFilePath: filepath.Join(logDir, ymd, "output_"+hmsF+".log"),
+		DebugLogFilePath:  filepath.Join(logDir, ymd, "debug_"+hmsF+".log"),
+		DebugColor:        true,
+		DeleteMtime:       10,
+		DeleteMtimeUnit:   "day",
+	}
+}
+
 // ForkWriter writes to multiple files and syncs/closes them safely
 type ForkWriter struct {
 	mu    sync.Mutex

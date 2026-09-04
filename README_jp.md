@@ -147,3 +147,12 @@ export LOG_PARAMS=debug
 - `DebugLogFilePath` / `DebugLogAppendPath`: 期待値マッチング、アクション、および実行時間の追跡トレースパス。
 - `DebugColor`: カラフルなログ出力の有効化。
 - `DeleteMtime` / `DeleteMtimeUnit`: セッション開始時に `LogDir` 内の古いファイルを自動削除する（例: 10日以上前のファイルを削除）。
+
+---
+
+## 注意点・トラブルシューティング
+
+### SSH 認証とパスワード再試行について
+- **SSH 認証方式**: `goplur` の SSH セッションは公開鍵認証とパスワード認証（未設定時や失敗時の対話的パスワード入力プロンプト含む）の両方に対応しています。なお、接続先端末側で `PasswordAuthentication no`（パスワード認証無効）が設定されている場合は、パスワードプロンプトは表示されず即座に `Permission denied (publickey)` で終了します。
+- **Expect パターンの複数行マッチング**: Go の `regexp` パッケージでは、メタ文字 `.` はデフォルトで改行文字（`\n` や `\r\n`）にマッチしません（`s` フラグがオフ）。SSH パスワード認証失敗時にサーバーから送られる `Permission denied, please try again.` と次の `password:` プロンプトの間には改行が含まれるため、改行を跨ぐパターンには `(?s)` フラグ（例: `(?s)Permission denied, please try again.+password:`）が適用されており、これにより正しく対話的パスワード入力（`ReactionGetPass`）が呼び出されます。
+

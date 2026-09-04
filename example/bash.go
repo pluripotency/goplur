@@ -21,8 +21,10 @@ func main() {
 	testFile := "/tmp/goplur_example_bash.txt"
 	defer os.Remove(testFile)
 
+	logParams := goplur.DefaultLogParams()
+
 	// Run bash session
-	err := goplur.RunBash(node, nil, func(s *goplur.Session) error {
+	err := goplur.RunBash(node, &logParams, func(s *goplur.Session) error {
 		// 1. Run a command
 		log.Println("Running 'uptime'...")
 		uptime, err := s.Run("uptime")
