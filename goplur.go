@@ -122,3 +122,8 @@ func PromptSshNodeWithDefaults(r io.Reader, w io.Writer, defaults *SshNodeConfig
 	return tool.PromptSshNodeWithDefaults(r, w, defaults)
 }
 
+func Interact(s *Session) error {
+	return s.Interact()
+}
+
+

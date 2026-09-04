@@ -63,7 +63,12 @@ func main() {
 		}
 		log.Printf("Docker command exists: %t", dockerOk)
 
-		return nil
+		// Hand over control to interactive user session (pexpect.interact style)
+		fmt.Println("--------------------------------------------------------------------------------")
+		fmt.Println("Starting interactive terminal session (pexpect.interact style).")
+		fmt.Println("You have direct shell access. Type 'exit' or press Ctrl+D to disconnect.")
+		fmt.Println("--------------------------------------------------------------------------------")
+		return s.Interact()
 	})
 
 	if err != nil {

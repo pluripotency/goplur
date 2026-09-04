@@ -4,7 +4,7 @@
 
 > [!NOTE]
 > **Acknowledgment & Appreciation:**
-> The core terminal interaction and expectation matching engine in `goplur` is built upon code extracted and simplified from the [google/goexpect](https://github.com/google/goexpect) library. We would like to express our deep gratitude to the original authors of `goexpect` for their wonderful work. The extracted subset is now inlined directly inside this project (`goplur/goexpect.go`), achieving near-instantaneous execution speed (e.g., resolving the default 2-second polling latency) and removing heavy external dependencies (such as gRPC and Go SSH client).
+> The core terminal interaction and expectation matching engine in `goplur` is built upon code extracted and simplified from the [google/goexpect](https://github.com/google/goexpect) library. We would like to express our deep gratitude to the original authors of `goexpect` for their wonderful work. The extracted subset is now inlined directly inside this project (`src/expect/`), achieving near-instantaneous execution speed (e.g., resolving the default 2-second polling latency), removing heavy external dependencies (such as gRPC and Go SSH client), and adding interactive terminal handoff (`s.Interact()`) which is absent in standard `goexpect`.
 
 `goplur` is a Go-based CLI automation tool designed for managing interactive sessions and performing idempotent shell operations across various platforms. Originally built on top of `github.com/google/goexpect`, it is the Go version of the Python `plur` library.
 
@@ -14,6 +14,7 @@ It provides a high-level API for automating SSH, Telnet, and local Bash sessions
 
 - **Session Management**: Easily manage nested sessions (SSH, Telnet, SU, SUDO) with a stack-based node architecture.
 - **Interactive Automation**: Handle complex interactive prompts (such as SSH key confirmations and passwords) automatically using configurable expectation sequences.
+- **Interactive Terminal Handoff (`Interact`)**: Seamlessly hand over the terminal session to the human user via `s.Interact()` (similar to Python's `pexpect.interact()`), enabling full interactive shell access with Tab completion, arrow keys, and signal handling—a feature absent in standard `google/goexpect`.
 - **Secure Logging**: Suppresses logs (toggles muting/unmuting stdout and file outputs) during password prompts to avoid exposing credentials.
 - **Idempotent Operations**: Built-in helper methods for common administrative tasks (e.g., file edits using `sed`, package management with `yum`/`dnf`, backup creations, and `HereDoc` configurations).
 - **Cross-Platform Support**: Automatically detects and adapts to various Linux environments (AlmaLinux, CentOS, Ubuntu, Arch Linux).
@@ -155,4 +156,11 @@ Available `LogParams` struct fields:
 ### SSH Authentication & Password Retry
 - **SSH Authentication Support**: `goplur` supports both public key authentication and password authentication (including interactive password entry via `ReactionGetPass` when a password is required or retried). Note that if the remote server enforces `PasswordAuthentication no`, failed public key authentication will exit with `Permission denied (publickey)`.
 - **Multi-line Regex Matching in Expect Patterns**: Go's `regexp` package does not match newline characters (`\n` or `\r\n`) with `.` by default unless the single-line flag `(?s)` is used. When SSH password authentication fails, the server emits `Permission denied, please try again.` followed by a newline and the next `password:` prompt. Multi-line patterns utilize `(?s)` (e.g., `(?s)Permission denied, please try again.+password:`) to ensure interactive password prompting (`ReactionGetPass`) is correctly triggered across line breaks.
+
+### Interactive Terminal Handoff (`Interact`)
+Standard `google/goexpect` (and most Go expect libraries) only supports programmatic expect/send automation and lacks a mechanism to hand over terminal control to a human user. `goplur` adds a built-in `s.Interact()` method (similar to Python's `pexpect.interact()`):
+- **Raw Mode & Terminal Control**: Places the local terminal into raw mode (`term.MakeRaw`), allowing direct keystroke forwarding (Tab completion, cursor keys, Ctrl+C, vim) without local line buffering.
+- **Echo Management**: Automatically re-enables remote terminal echo (`stty echo`) upon entering interactive mode, and restores terminal settings when the user disconnects (`exit` / Ctrl+D).
+- **Hybrid Automation**: You can automate login credentials and initial setup commands, then call `s.Interact()` to hand over the session to the user.
+
 
