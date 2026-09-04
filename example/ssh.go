@@ -7,51 +7,44 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 
 	"goplur"
+	"goplur/src/tool"
 )
 
 func main() {
-	reader := bufio.NewReader(os.Stdin)
-
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Println("Starting SSH example. Enter the target hostname and access IP address")
-	fmt.Println("when prompted (defaults to localhost / 127.0.0.1).")
+	fmt.Println("Starting SSH example. Configure SSH target node parameters interactively.")
 	fmt.Println("--------------------------------------------------------------------------------")
 
-	fmt.Print("Enter target Hostname (e.g., myhost) [default: localhost]: ")
-	hostInput, _ := reader.ReadString('\n')
-	hostname := strings.TrimSpace(hostInput)
-	if hostname == "" {
-		hostname = "localhost"
+	// JSON default values for node parameters (omitted keys inherit interactive defaults)
+	jsonDefaults := []byte(`{
+		"hostname": "localhost",
+		"access_ip": "127.0.0.1",
+		"platform": "ubuntu"
+	}`)
+
+	// 1. Validate JSON defaults and merge with interactive defaults for missing keys
+	defaults, err := tool.LoadDefaultsFromJSON(jsonDefaults)
+	if err != nil {
+		log.Fatalf("Failed to initialize defaults from JSON: %v", err)
 	}
 
-	fmt.Print("Enter target Access IP (e.g., 192.168.1.100) [default: 127.0.0.1]: ")
-	ipInput, _ := reader.ReadString('\n')
-	accessIp := strings.TrimSpace(ipInput)
-	if accessIp == "" {
-		accessIp = "127.0.0.1"
+	// 2. Interactively configure node using validated defaults
+	node, err := tool.PromptSshNodeWithDefaults(os.Stdin, os.Stdout, defaults)
+	if err != nil {
+		log.Fatalf("Failed to configure SSH node: %v", err)
 	}
 
-	username := os.Getenv("USER")
-	password := ""
-	port := 22
-	platform := "ubuntu"
-
-	log.Printf("Initializing SSH node for %s@%s:%d (Platform: %s)...", username, hostname, port, platform)
-
-	// Create SSH node configuration
-	node := goplur.NewSshNode(hostname, accessIp, username, password, platform)
-	node.SSHPort = port
+	log.Printf("Initializing SSH node for %s@%s:%d (Platform: %s)...", node.Username, node.Hostname, node.SSHPort, node.Platform)
 
 	logParams := goplur.DefaultLogParams()
 	// Start SSH session wrapper
-	err := goplur.RunSsh(node, &logParams, func(s *goplur.Session) error {
+	err = goplur.RunSsh(node, &logParams, func(s *goplur.Session) error {
 		log.Println("Successfully logged in via SSH!")
 
 		// Run standard command

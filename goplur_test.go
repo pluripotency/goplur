@@ -189,3 +189,9 @@ func TestDefaultLogParams(t *testing.T) {
 		t.Errorf("expected DeleteMtimeUnit to be 'day', got %s", lp.DeleteMtimeUnit)
 	}
 }
+
+func TestReExportToolFunctions(t *testing.T) {
+	var _ func() (*SshNode, error) = PromptSshNode
+	var _ func() (*SshNode, error) = NewInteractiveSshNode
+}
+

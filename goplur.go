@@ -1,9 +1,12 @@
 package goplur
 
 import (
+	"io"
+
 	"goplur/src/expect"
 	"goplur/src/node"
 	"goplur/src/session"
+	"goplur/src/tool"
 )
 
 // Re-export Node types from src/node
@@ -12,6 +15,7 @@ type BaseNode = node.BaseNode
 type BashNode = node.BashNode
 type SshNode = node.SshNode
 type TelnetNode = node.TelnetNode
+type SshNodeConfig = tool.SshNodeConfig
 
 // Re-export Session and related types from src/session
 type Session = session.Session
@@ -93,3 +97,28 @@ func DefaultLogParams() LogParams {
 func OK() func() (Tag, error) {
 	return expect.OK()
 }
+
+func PromptSshNode() (*node.SshNode, error) {
+	return tool.PromptSshNode()
+}
+
+func NewInteractiveSshNode() (*node.SshNode, error) {
+	return tool.NewInteractiveSshNode()
+}
+
+func DefaultSshNodeConfig() *SshNodeConfig {
+	return tool.DefaultSshNodeConfig()
+}
+
+func LoadDefaultsFromJSON(data []byte) (*SshNodeConfig, error) {
+	return tool.LoadDefaultsFromJSON(data)
+}
+
+func LoadDefaultsFromTOML(data []byte) (*SshNodeConfig, error) {
+	return tool.LoadDefaultsFromTOML(data)
+}
+
+func PromptSshNodeWithDefaults(r io.Reader, w io.Writer, defaults *SshNodeConfig) (*node.SshNode, error) {
+	return tool.PromptSshNodeWithDefaults(r, w, defaults)
+}
+
