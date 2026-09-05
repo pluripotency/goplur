@@ -73,6 +73,7 @@ Cisco 機器等では、ログイン成功後に `enable` コマンドを実行�
 | `goplur.go` | - `SessionExecutor`, `ConnectHandlerFunc`, `ExitHandlerFunc`, `TelnetEscapeExitHandler` 等の re-export |
 | `src/node/node_test.go` | - コマンドビルダー、各オプション、Telnet エスケープ切断のユニットテスト追加 |
 | `src/session/session_custom_test.go` | - 制御文字、カスタム ExitHandler / ConnectHandler、SendLine 連携テスト追加 |
+| `example/telnet.go` | - 単純TCPモックサーバにより、`exit` を拒否し `Ctrl+]` → `quit` でしか切断できない状況を再現・検証する実動サンプル |
 
 ---
 
