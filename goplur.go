@@ -16,6 +16,13 @@ type BashNode = node.BashNode
 type SshNode = node.SshNode
 type TelnetNode = node.TelnetNode
 type SshNodeConfig = tool.SshNodeConfig
+type SessionExecutor = node.SessionExecutor
+type ConnectHandlerFunc = node.ConnectHandlerFunc
+type ExitHandlerFunc = node.ExitHandlerFunc
+type SSHCommandProvider = node.SSHCommandProvider
+type TelnetCommandProvider = node.TelnetCommandProvider
+
+var TelnetEscapeExitHandler = node.TelnetEscapeExitHandler
 
 // Re-export Session and related types from src/session
 type Session = session.Session

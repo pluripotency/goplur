@@ -205,4 +205,24 @@ func TestReExportInteract(t *testing.T) {
 	var _ func(*Session, ...InteractOption) error = Interact
 }
 
+func TestReExportCustomSession(t *testing.T) {
+	var _ ExitHandlerFunc = TelnetEscapeExitHandler
+
+	sshNode := NewSshNode("web", "192.168.1.1", "admin", "pass", "ubuntu").
+		WithKey("./key.pem").
+		WithLoginFlag(true)
+
+	if cmd := sshNode.GetSSHCommand(); cmd != "ssh -i ./key.pem 192.168.1.1 -l admin" {
+		t.Errorf("unexpected ssh command: %s", cmd)
+	}
+
+	telnetNode := NewTelnetNode("r1", "10.0.0.1", "admin", "pass", "cisco").
+		WithEscapeExit()
+
+	if telnetNode.GetExitHandler() == nil {
+		t.Errorf("expected ExitHandler to be set")
+	}
+}
+
+
 

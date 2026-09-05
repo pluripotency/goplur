@@ -257,7 +257,48 @@ func getControlChar(char string) string {
 	if c >= 'A' && c <= 'Z' {
 		return string(c - 'A' + 1)
 	}
+	switch c {
+	case '@':
+		return "\x00"
+	case '[':
+		return "\x1b"
+	case '\\':
+		return "\x1c"
+	case ']':
+		return "\x1d"
+	case '^':
+		return "\x1e"
+	case '_':
+		return "\x1f"
+	case '?':
+		return "\x7f"
+	}
 	return ""
+}
+
+func (s *Session) Send(str string) error {
+	if s.child == nil {
+		return fmt.Errorf("session child is nil")
+	}
+	s.logger.outputWriter.Write([]byte(str))
+	s.logger.debugLog.Message(fmt.Sprintf("Sending raw: %q", str))
+	return s.child.Send(str)
+}
+
+func (s *Session) SendLine(str string) error {
+	return s.Send(str + "\n")
+}
+
+func (s *Session) SendControl(char string) error {
+	ctrlStr := getControlChar(char)
+	if ctrlStr == "" {
+		return fmt.Errorf("unsupported control character: %q", char)
+	}
+	if s.child == nil {
+		return fmt.Errorf("session child is nil")
+	}
+	s.logger.debugLog.Message(fmt.Sprintf("Sending Ctrl-%s", char))
+	return s.child.Send(ctrlStr)
 }
 
 func (s *Session) Do(action string, rows []ExpectRow, timeout time.Duration) (interface{}, error) {
@@ -387,6 +428,14 @@ func (s *Session) platformRun() error {
 }
 
 func (s *Session) Bash() (*Session, error) {
+	node := s.CurrentNode()
+	if handler := node.GetConnectHandler(); handler != nil {
+		if err := handler(s, node); err != nil {
+			return nil, err
+		}
+		return s, nil
+	}
+
 	_, err := s.Do("bash", []ExpectRow{
 		{Pattern: "", Reaction: ReactionCapture},
 	}, s.timeout)
@@ -414,72 +463,92 @@ func (s *Session) expectsOnLogin(password string) []ExpectRow {
 	}
 }
 
-func (s *Session) Ssh() (*Session, error) {
-	node := s.CurrentNode()
-
-	accessTarget := node.GetAccessIP()
-	if accessTarget == "" {
-		accessTarget = node.GetHostname()
-	}
-	if accessTarget == "" {
-		return nil, fmt.Errorf("ssh: access ip or hostname is required")
-	}
-
-	if node.GetUsername() == "" {
-		return nil, fmt.Errorf("ssh: username is required")
-	}
-
-	action := fmt.Sprintf("ssh %s@%s", node.GetUsername(), accessTarget)
-	if sshNode, ok := node.(interface {
-		GetSSHPort() int
-		GetSSHOptions() string
-	}); ok {
-		port := sshNode.GetSSHPort()
-		if port != 0 && port != 22 {
-			action += fmt.Sprintf(" -p %d", port)
+// DefaultSshLogin は標準的なSSHログインシーケンスを実行します。
+func (s *Session) DefaultSshLogin(node nd.Node) error {
+	var action string
+	if provider, ok := node.(nd.SSHCommandProvider); ok {
+		action = provider.GetSSHCommand()
+	} else {
+		accessTarget := node.GetAccessIP()
+		if accessTarget == "" {
+			accessTarget = node.GetHostname()
 		}
-		opts := sshNode.GetSSHOptions()
-		if opts != "" {
-			action += " " + opts
+		if accessTarget == "" {
+			return fmt.Errorf("ssh: access ip or hostname is required")
+		}
+
+		if node.GetUsername() == "" {
+			return fmt.Errorf("ssh: username is required")
+		}
+
+		action = fmt.Sprintf("ssh %s@%s", node.GetUsername(), accessTarget)
+		if sshNode, ok := node.(interface {
+			GetSSHPort() int
+			GetSSHOptions() string
+		}); ok {
+			port := sshNode.GetSSHPort()
+			if port != 0 && port != 22 {
+				action += fmt.Sprintf(" -p %d", port)
+			}
+			opts := sshNode.GetSSHOptions()
+			if opts != "" {
+				action += " " + opts
+			}
 		}
 	}
 
 	_, err := s.Do(action, s.expectsOnLogin(node.GetPassword()), s.timeout)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = s.platformRun()
-	if err != nil {
+	return s.platformRun()
+}
+
+func (s *Session) Ssh() (*Session, error) {
+	node := s.CurrentNode()
+
+	if handler := node.GetConnectHandler(); handler != nil {
+		if err := handler(s, node); err != nil {
+			return nil, err
+		}
+		return s, nil
+	}
+
+	if err := s.DefaultSshLogin(node); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *Session) Telnet() (*Session, error) {
-	node := s.CurrentNode()
-
-	accessTarget := node.GetAccessIP()
-	if accessTarget == "" {
-		accessTarget = node.GetHostname()
-	}
-	if accessTarget == "" {
-		return nil, fmt.Errorf("telnet: access ip or hostname is required")
-	}
-
-	port := 23
-	if telnetNode, ok := node.(interface {
-		GetTelnetPort() int
-	}); ok {
-		tPort := telnetNode.GetTelnetPort()
-		if tPort != 0 {
-			port = tPort
+// DefaultTelnetLogin は標準的なTelnetログインシーケンスを実行します。
+func (s *Session) DefaultTelnetLogin(node nd.Node) error {
+	var action string
+	if provider, ok := node.(nd.TelnetCommandProvider); ok {
+		action = provider.GetTelnetCommand()
+	} else {
+		accessTarget := node.GetAccessIP()
+		if accessTarget == "" {
+			accessTarget = node.GetHostname()
 		}
-	}
+		if accessTarget == "" {
+			return fmt.Errorf("telnet: access ip or hostname is required")
+		}
 
-	action := fmt.Sprintf("telnet %s", accessTarget)
-	if port != 23 {
-		action += fmt.Sprintf(" %d", port)
+		port := 23
+		if telnetNode, ok := node.(interface {
+			GetTelnetPort() int
+		}); ok {
+			tPort := telnetNode.GetTelnetPort()
+			if tPort != 0 {
+				port = tPort
+			}
+		}
+
+		action = fmt.Sprintf("telnet %s", accessTarget)
+		if port != 23 {
+			action += fmt.Sprintf(" %d", port)
+		}
 	}
 
 	rows := s.expectsOnLogin(node.GetPassword())
@@ -488,11 +557,23 @@ func (s *Session) Telnet() (*Session, error) {
 
 	_, err := s.Do(action, rows, s.timeout)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = s.platformRun()
-	if err != nil {
+	return s.platformRun()
+}
+
+func (s *Session) Telnet() (*Session, error) {
+	node := s.CurrentNode()
+
+	if handler := node.GetConnectHandler(); handler != nil {
+		if err := handler(s, node); err != nil {
+			return nil, err
+		}
+		return s, nil
+	}
+
+	if err := s.DefaultTelnetLogin(node); err != nil {
 		return nil, err
 	}
 	return s, nil

@@ -10,15 +10,19 @@ func RunSession(n nd.Node, loginMethod string, logParams *LogParams, fn func(s *
 	defer s.Close()
 
 	var err error
-	switch loginMethod {
-	case "bash":
-		_, err = s.Bash()
-	case "ssh":
-		_, err = s.Ssh()
-	case "telnet":
-		_, err = s.Telnet()
-	default:
-		return fmt.Errorf("unknown login method: %s", loginMethod)
+	if handler := n.GetConnectHandler(); handler != nil {
+		err = handler(s, n)
+	} else {
+		switch loginMethod {
+		case "bash":
+			_, err = s.Bash()
+		case "ssh":
+			_, err = s.Ssh()
+		case "telnet":
+			_, err = s.Telnet()
+		default:
+			return fmt.Errorf("unknown login method: %s", loginMethod)
+		}
 	}
 	if err != nil {
 		return err
@@ -30,13 +34,21 @@ func RunSession(n nd.Node, loginMethod string, logParams *LogParams, fn func(s *
 	}
 
 	currentNode := s.CurrentNode()
-	exitCmd := currentNode.GetExitCommand()
-
-	if len(s.nodes) == 1 {
-		s.actionHandler(exitCmd)
+	if exitHandler := currentNode.GetExitHandler(); exitHandler != nil {
+		if len(s.nodes) > 1 {
+			s.PopNode()
+		}
+		if err := exitHandler(s, currentNode); err != nil {
+			return err
+		}
 	} else {
-		s.PopNode()
-		s.Run(exitCmd)
+		exitCmd := currentNode.GetExitCommand()
+		if len(s.nodes) == 1 {
+			s.actionHandler(exitCmd)
+		} else {
+			s.PopNode()
+			s.Run(exitCmd)
+		}
 	}
 
 	return nil
