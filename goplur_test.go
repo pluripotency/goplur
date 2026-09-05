@@ -195,3 +195,14 @@ func TestReExportToolFunctions(t *testing.T) {
 	var _ func() (*SshNode, error) = NewInteractiveSshNode
 }
 
+func TestReExportInteract(t *testing.T) {
+	var _ func(string) InteractOption = WithPreCommand
+	var _ func(string) InteractOption = WithPostCommand
+	var _ func() InteractOption = WithoutCommands
+	var _ func(func(s *Session) error) InteractOption = WithPreHook
+	var _ func(func(s *Session) error) InteractOption = WithPostHook
+	var _ func(bool) InteractOption = WithWinsizeSync
+	var _ func(*Session, ...InteractOption) error = Interact
+}
+
+

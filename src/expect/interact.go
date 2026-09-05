@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/signal"
 	"syscall"
 	"time"
 	"unsafe"
@@ -57,6 +58,28 @@ func (e *GExpect) InteractWithIO(in io.Reader, out io.Writer) error {
 			if w, h, err := xterm.GetSize(fd); err == nil && e.pty != nil && e.pty.Master != nil {
 				setWinsize(e.pty.Master, w, h)
 			}
+
+			// Dynamically monitor SIGWINCH to handle window resize during interact
+			sigChan := make(chan os.Signal, 1)
+			sigDone := make(chan struct{})
+			signal.Notify(sigChan, syscall.SIGWINCH)
+			defer func() {
+				signal.Stop(sigChan)
+				close(sigDone)
+			}()
+
+			go func() {
+				for {
+					select {
+					case <-sigDone:
+						return
+					case <-sigChan:
+						if w, h, err := xterm.GetSize(fd); err == nil && e.pty != nil && e.pty.Master != nil {
+							setWinsize(e.pty.Master, w, h)
+						}
+					}
+				}
+			}()
 		}
 	}
 

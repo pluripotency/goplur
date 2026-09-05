@@ -24,6 +24,8 @@ type LogParams = session.LogParams
 type ReactionType = session.ReactionType
 type SessionLogger = session.SessionLogger
 type DebugLogger = session.DebugLogger
+type InteractConfig = session.InteractConfig
+type InteractOption = session.InteractOption
 
 // Re-export expect types from src/expect
 type GExpect = expect.GExpect
@@ -122,8 +124,32 @@ func PromptSshNodeWithDefaults(r io.Reader, w io.Writer, defaults *SshNodeConfig
 	return tool.PromptSshNodeWithDefaults(r, w, defaults)
 }
 
-func Interact(s *Session) error {
-	return s.Interact()
+func WithPreCommand(cmd string) InteractOption {
+	return session.WithPreCommand(cmd)
+}
+
+func WithPostCommand(cmd string) InteractOption {
+	return session.WithPostCommand(cmd)
+}
+
+func WithoutCommands() InteractOption {
+	return session.WithoutCommands()
+}
+
+func WithPreHook(fn func(s *Session) error) InteractOption {
+	return session.WithPreHook(fn)
+}
+
+func WithPostHook(fn func(s *Session) error) InteractOption {
+	return session.WithPostHook(fn)
+}
+
+func WithWinsizeSync(enable bool) InteractOption {
+	return session.WithWinsizeSync(enable)
+}
+
+func Interact(s *Session, opts ...InteractOption) error {
+	return s.Interact(opts...)
 }
 
 

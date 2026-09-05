@@ -17,26 +17,32 @@ type Node interface {
 	GetAccessIP() string
 	GetExitCommand() string
 	GetRootPassword() string
+	GetInteractPreCommand() string
+	GetInteractPostCommand() string
 }
 
 type BaseNode struct {
-	Hostname     string `json:"hostname"`
-	Username     string `json:"username"`
-	Password     string `json:"password"`
-	Platform     string `json:"platform"`
-	WaitPrompt   string `json:"waitprompt"`
-	AccessIP     string `json:"access_ip"`
-	ExitCommand  string `json:"exit_command"`
-	RootPassword string `json:"root_password"`
+	Hostname            string `json:"hostname"`
+	Username            string `json:"username"`
+	Password            string `json:"password"`
+	Platform            string `json:"platform"`
+	WaitPrompt          string `json:"waitprompt"`
+	AccessIP            string `json:"access_ip"`
+	ExitCommand         string `json:"exit_command"`
+	RootPassword        string `json:"root_password"`
+	InteractPreCommand  string `json:"interact_pre_command"`
+	InteractPostCommand string `json:"interact_post_command"`
 }
 
-func (n *BaseNode) GetHostname() string     { return n.Hostname }
-func (n *BaseNode) GetUsername() string     { return n.Username }
-func (n *BaseNode) GetPassword() string     { return n.Password }
-func (n *BaseNode) GetPlatform() string     { return n.Platform }
-func (n *BaseNode) GetWaitPrompt() string   { return n.WaitPrompt }
-func (n *BaseNode) GetAccessIP() string     { return n.AccessIP }
-func (n *BaseNode) GetRootPassword() string { return n.RootPassword }
+func (n *BaseNode) GetHostname() string            { return n.Hostname }
+func (n *BaseNode) GetUsername() string            { return n.Username }
+func (n *BaseNode) GetPassword() string            { return n.Password }
+func (n *BaseNode) GetPlatform() string            { return n.Platform }
+func (n *BaseNode) GetWaitPrompt() string          { return n.WaitPrompt }
+func (n *BaseNode) GetAccessIP() string            { return n.AccessIP }
+func (n *BaseNode) GetRootPassword() string        { return n.RootPassword }
+func (n *BaseNode) GetInteractPreCommand() string  { return n.InteractPreCommand }
+func (n *BaseNode) GetInteractPostCommand() string { return n.InteractPostCommand }
 
 func (n *BaseNode) GetExitCommand() string {
 	if n.ExitCommand == "" {
@@ -46,11 +52,13 @@ func (n *BaseNode) GetExitCommand() string {
 }
 
 type BashNode struct {
-	Hostname    string `json:"hostname"`
-	Username    string `json:"username"`
-	Platform    string `json:"platform"`
-	WaitPrompt  string `json:"waitprompt"`
-	ExitCommand string `json:"exit_command"`
+	Hostname            string `json:"hostname"`
+	Username            string `json:"username"`
+	Platform            string `json:"platform"`
+	WaitPrompt          string `json:"waitprompt"`
+	ExitCommand         string `json:"exit_command"`
+	InteractPreCommand  string `json:"interact_pre_command"`
+	InteractPostCommand string `json:"interact_post_command"`
 }
 
 func (n *BashNode) GetHostname() string     { return n.Hostname }
@@ -68,6 +76,20 @@ func (n *BashNode) GetExitCommand() string {
 	return n.ExitCommand
 }
 
+func (n *BashNode) GetInteractPreCommand() string {
+	if n.InteractPreCommand != "" {
+		return n.InteractPreCommand
+	}
+	return "stty echo"
+}
+
+func (n *BashNode) GetInteractPostCommand() string {
+	if n.InteractPostCommand != "" {
+		return n.InteractPostCommand
+	}
+	return "stty -echo"
+}
+
 type TelnetNode struct {
 	BaseNode
 	TelnetPort int `json:"telnet_port"`
@@ -83,6 +105,20 @@ type SshNode struct {
 
 func (n *SshNode) GetSSHPort() int       { return n.SSHPort }
 func (n *SshNode) GetSSHOptions() string { return n.SSHOptions }
+
+func (n *SshNode) GetInteractPreCommand() string {
+	if n.InteractPreCommand != "" {
+		return n.InteractPreCommand
+	}
+	return "stty echo; stty sane"
+}
+
+func (n *SshNode) GetInteractPostCommand() string {
+	if n.InteractPostCommand != "" {
+		return n.InteractPostCommand
+	}
+	return "stty -echo"
+}
 
 func IsPlatformRHEL(platform string) bool {
 	matched, _ := regexp.MatchString("centos|fedora|rhel|alma|rocky", platform)
