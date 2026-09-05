@@ -1,0 +1,52 @@
+[
+  {
+    "id": "web-tokyo-01",
+    "name": "Production Web Frontend 01 (Tokyo)",
+    "type": "ssh",
+    "access_ip": "10.0.1.11",
+    "port": 22,
+    "username": "deploy",
+    "auth_type": "key",
+    "key_file": "keys/id_rsa_web",
+    "use_login_flag": true,
+    "platform": "ubuntu",
+    "tags": ["prod", "web", "tokyo", "aws"]
+  },
+  {
+    "id": "db-master-01",
+    "name": "Primary Database Master (Osaka)",
+    "type": "ssh",
+    "access_ip": "10.0.2.50",
+    "port": 2222,
+    "username": "postgres",
+    "auth_type": "password",
+    "password": "mySecureDbPassword",
+    "platform": "almalinux9",
+    "tags": ["prod", "db", "osaka", "postgresql"]
+  },
+  {
+    "id": "core-sw-01",
+    "name": "Datacenter Core Switch (L3)",
+    "type": "telnet",
+    "access_ip": "192.168.10.1",
+    "port": 23,
+    "username": "admin",
+    "password": "switchPassword",
+    "enable_password": "ciscoEnableSecret",
+    "platform": "cisco",
+    "escape_exit": true,
+    "tags": ["network", "switch", "cisco", "datacenter"]
+  },
+  {
+    "id": "local-sandbox",
+    "name": "Local Test Machine",
+    "type": "ssh",
+    "access_ip": "127.0.0.1",
+    "port": 22,
+    "username": "worker",
+    "auth_type": "password",
+    "password": "workerPassword",
+    "platform": "ubuntu",
+    "tags": ["local", "test", "dev"]
+  }
+]
