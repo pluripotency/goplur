@@ -505,11 +505,255 @@ func (s *Session) DefaultSshLogin(node nd.Node) error {
 	return s.platformRun()
 }
 
+// Output は現在のセッションバッファの累積出力を返します。
+func (s *Session) Output() string {
+	if s.child == nil {
+		return ""
+	}
+	return s.child.Output()
+}
+
+// DirectSshLogin は OSごとのプロンプト待機を行わず、パスワード認証・鍵認証の双方に多段階インターバル判定で自動対応する対話用SSH接続を実行します。
+func (s *Session) DirectSshLogin(node nd.Node) error {
+	var action string
+	if provider, ok := node.(nd.SSHCommandProvider); ok {
+		action = provider.GetSSHCommand()
+	} else {
+		accessTarget := node.GetAccessIP()
+		if accessTarget == "" {
+			accessTarget = node.GetHostname()
+		}
+		if accessTarget == "" {
+			return fmt.Errorf("ssh: access ip or hostname is required")
+		}
+
+		if node.GetUsername() == "" {
+			return fmt.Errorf("ssh: username is required")
+		}
+
+		action = fmt.Sprintf("ssh %s@%s", node.GetUsername(), accessTarget)
+		if sshNode, ok := node.(interface {
+			GetSSHPort() int
+			GetSSHOptions() string
+		}); ok {
+			port := sshNode.GetSSHPort()
+			if port != 0 && port != 22 {
+				action += fmt.Sprintf(" -p %d", port)
+			}
+			opts := sshNode.GetSSHOptions()
+			if opts != "" {
+				action += " " + opts
+			}
+		}
+	}
+
+	return s.directLoginLoop(action, node, false)
+}
+
+// DirectTelnetLogin は OSごとのプロンプト待機を行わず、Telnetログインを実行します。
+func (s *Session) DirectTelnetLogin(node nd.Node) error {
+	var action string
+	if provider, ok := node.(nd.TelnetCommandProvider); ok {
+		action = provider.GetTelnetCommand()
+	} else {
+		accessTarget := node.GetAccessIP()
+		if accessTarget == "" {
+			accessTarget = node.GetHostname()
+		}
+		if accessTarget == "" {
+			return fmt.Errorf("telnet: access ip or hostname is required")
+		}
+
+		port := 23
+		if telnetNode, ok := node.(interface {
+			GetTelnetPort() int
+		}); ok {
+			tPort := telnetNode.GetTelnetPort()
+			if tPort != 0 {
+				port = tPort
+			}
+		}
+
+		action = fmt.Sprintf("telnet %s", accessTarget)
+		if port != 23 {
+			action += fmt.Sprintf(" %d", port)
+		}
+	}
+
+	return s.directLoginLoop(action, node, true)
+}
+
+func (s *Session) directLoginLoop(action string, node nd.Node, isTelnet bool) error {
+	err := s.actionHandler(action)
+	if err != nil {
+		return err
+	}
+
+	interval := 2 * time.Second
+	maxRetries := 3 // 初回2秒 + 3回リトライ = 計8秒
+	attempt := 0
+	passwordSent := false
+	userSent := false
+	outputLenAtPassSend := 0
+	var accumulatedOutput strings.Builder
+
+	// 汎用プロンプト記号（FortiGateの #、Linuxの $/#、Ciscoの >/#、Juniperの >/#、メニュー選択の : 等）
+	genericPromptRe := regexp.MustCompile(`(?m)[\$#>:%][ \t]*$`)
+
+	// パターン定義
+	yesNoRe := regexp.MustCompile(`Are you sure you want to continue connecting \(yes/no.+\?`)
+	passPromptRe := regexp.MustCompile(`[Pp]assword:`)
+	passRetryRe := regexp.MustCompile(`(?s)Permission denied, please try again.+password:`)
+	permDeniedRe := regexp.MustCompile(`Permission denied`)
+	hostKeyChangedRe := regexp.MustCompile(`WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`)
+	hostnameErrRe := regexp.MustCompile(`ssh: Could not resolve hostname`)
+	connectErrRe := regexp.MustCompile(`ssh: connect to host `)
+	telnetLoginRe := regexp.MustCompile(`[Ll]ogin:`)
+
+	for {
+		var cs []exp.Caser
+		var actions []func(out string) (bool, error)
+
+		// 1. ホスト鍵確認
+		cs = append(cs, &exp.Case{R: yesNoRe, T: exp.OK()})
+		actions = append(actions, func(out string) (bool, error) {
+			s.logger.debugLog.atRowMethod("SSH host key confirmation: sending yes")
+			if sendErr := s.child.Send("yes\n"); sendErr != nil {
+				return false, sendErr
+			}
+			attempt = 0
+			return false, nil
+		})
+
+		// 2. 致命的エラー
+		for _, errRe := range []*regexp.Regexp{permDeniedRe, hostKeyChangedRe, hostnameErrRe, connectErrRe} {
+			cs = append(cs, &exp.Case{R: errRe, T: exp.OK()})
+			reLabel := errRe.String()
+			actions = append(actions, func(out string) (bool, error) {
+				return false, fmt.Errorf("connection error: %s", reLabel)
+			})
+		}
+
+		// 3. Telnet ユーザー名
+		if isTelnet && !userSent {
+			cs = append(cs, &exp.Case{R: telnetLoginRe, T: exp.OK()})
+			actions = append(actions, func(out string) (bool, error) {
+				s.logger.debugLog.atRowMethod(fmt.Sprintf("Telnet login: sending %s", node.GetUsername()))
+				if sendErr := s.child.Send(node.GetUsername() + "\n"); sendErr != nil {
+					return false, sendErr
+				}
+				userSent = true
+				attempt = 0
+				return false, nil
+			})
+		}
+
+		// 4. パスワード送信前
+		if !passwordSent {
+			cs = append(cs, &exp.Case{R: passPromptRe, T: exp.OK()})
+			actions = append(actions, func(out string) (bool, error) {
+				s.logger.debugLog.atRowMethod("DirectLogin: password prompt matched, sending password")
+				s.logger.outputWriter.Mute()
+				sendErr := s.child.Send(node.GetPassword() + "\n")
+				s.logger.outputWriter.Unmute()
+				if sendErr != nil {
+					return false, sendErr
+				}
+				passwordSent = true
+				outputLenAtPassSend = accumulatedOutput.Len()
+				attempt = 0
+				return false, nil
+			})
+
+			cs = append(cs, &exp.Case{R: passRetryRe, T: exp.OK()})
+			actions = append(actions, func(out string) (bool, error) {
+				return false, fmt.Errorf("permission denied (invalid password)")
+			})
+		}
+
+		// 5. Fast-Path: 汎用プロンプト記号
+		cs = append(cs, &exp.Case{R: genericPromptRe, T: exp.OK()})
+		actions = append(actions, func(out string) (bool, error) {
+			s.logger.debugLog.atRowMethod("DirectLogin: fast-path prompt detected, login complete")
+			return true, nil
+		})
+
+		out, _, idx, err := s.child.ExpectSwitchCase(cs, interval)
+		accumulatedOutput.WriteString(out)
+
+		if err != nil {
+			isTimeout := strings.Contains(err.Error(), "timer expired") || strings.Contains(err.Error(), "timeout")
+			isEOF := err == io.EOF || strings.Contains(err.Error(), "EOF")
+
+			if isEOF {
+				return fmt.Errorf("session closed by remote host (EOF)")
+			}
+
+			if isTimeout {
+				curOut := accumulatedOutput.String()
+
+				if !passwordSent {
+					trimmed := strings.TrimSpace(curOut)
+					if trimmed == "" {
+						// 【無音状態】ホストからまだ何も応答がない（DNS逆引き遅延、接続ネゴシエーション中）
+						attempt++
+						if attempt > maxRetries {
+							return fmt.Errorf("ssh connection timed out: host did not respond within %v", time.Duration(attempt+1)*interval)
+						}
+						s.logger.debugLog.Message(fmt.Sprintf("DirectLogin: host quiet (attempt %d/%d), waiting another %v...", attempt, maxRetries, interval))
+						continue
+					}
+					// 【何かしら出力あり】パスワード不要で画面が出力された（鍵認証成功、またはメニュー画面等）
+					s.logger.debugLog.Message("DirectLogin: output detected without password prompt, proceeding to interact")
+					return nil
+				} else {
+					// パスワード送信後：パスワード送信後の新規出力を検査
+					var newOutput string
+					if len(curOut) > outputLenAtPassSend {
+						newOutput = curOut[outputLenAtPassSend:]
+					}
+					trimmed := strings.TrimSpace(newOutput)
+					if trimmed == "" {
+						// パスワード送信後、まだ認証検証中
+						attempt++
+						if attempt > maxRetries {
+							return fmt.Errorf("authentication timed out: host did not respond after password sent")
+						}
+						s.logger.debugLog.Message(fmt.Sprintf("DirectLogin: waiting for response after password (attempt %d/%d)...", attempt, maxRetries))
+						continue
+					}
+					// パスワード送信後に新規出力（プロンプトやバナー等）が届いた！
+					s.logger.debugLog.Message("DirectLogin: output received after password, proceeding to interact")
+					return nil
+				}
+			}
+
+			return err
+		}
+
+		s.logger.debugLog.afterSelect(idx, out)
+		done, actionErr := actions[idx](out)
+		if actionErr != nil {
+			return actionErr
+		}
+		if done {
+			return nil
+		}
+	}
+}
+
 func (s *Session) Ssh() (*Session, error) {
 	node := s.CurrentNode()
 
 	if handler := node.GetConnectHandler(); handler != nil {
 		if err := handler(s, node); err != nil {
+			return nil, err
+		}
+		return s, nil
+	}
+
+	if node.IsDirectMode() {
+		if err := s.DirectSshLogin(node); err != nil {
 			return nil, err
 		}
 		return s, nil
@@ -568,6 +812,13 @@ func (s *Session) Telnet() (*Session, error) {
 
 	if handler := node.GetConnectHandler(); handler != nil {
 		if err := handler(s, node); err != nil {
+			return nil, err
+		}
+		return s, nil
+	}
+
+	if node.IsDirectMode() {
+		if err := s.DirectTelnetLogin(node); err != nil {
 			return nil, err
 		}
 		return s, nil

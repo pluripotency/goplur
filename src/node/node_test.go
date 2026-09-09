@@ -162,3 +162,71 @@ func TestNodeHandlers(t *testing.T) {
 		t.Errorf("expected ExitHandler to be called")
 	}
 }
+
+func TestNode_DirectMode(t *testing.T) {
+	t.Run("BaseNode DirectMode", func(t *testing.T) {
+		base := &BaseNode{
+			ExitCommand:         "exit",
+			InteractPreCommand:  "echo pre",
+			InteractPostCommand: "echo post",
+		}
+		if base.IsDirectMode() {
+			t.Errorf("default DirectMode should be false")
+		}
+		if base.GetExitCommand() != "exit" {
+			t.Errorf("expected exit, got %s", base.GetExitCommand())
+		}
+		if base.GetInteractPreCommand() != "echo pre" {
+			t.Errorf("expected echo pre, got %s", base.GetInteractPreCommand())
+		}
+
+		base.WithDirectMode(true)
+		if !base.IsDirectMode() {
+			t.Errorf("DirectMode should be true")
+		}
+		if base.GetExitCommand() != "" {
+			t.Errorf("DirectMode GetExitCommand should be empty, got %s", base.GetExitCommand())
+		}
+		if base.GetInteractPreCommand() != "" {
+			t.Errorf("DirectMode GetInteractPreCommand should be empty, got %s", base.GetInteractPreCommand())
+		}
+		if base.GetInteractPostCommand() != "" {
+			t.Errorf("DirectMode GetInteractPostCommand should be empty, got %s", base.GetInteractPostCommand())
+		}
+	})
+
+	t.Run("SshNode DirectMode", func(t *testing.T) {
+		sshNode := NewSshNode("host1", "192.168.1.1", "user", "pass", "ubuntu")
+		if sshNode.GetInteractPreCommand() != "stty echo; stty sane" {
+			t.Errorf("expected default stty echo, got %s", sshNode.GetInteractPreCommand())
+		}
+		if sshNode.GetExitCommand() != "exit" {
+			t.Errorf("expected exit, got %s", sshNode.GetExitCommand())
+		}
+
+		sshNode.WithDirectMode(true)
+		if !sshNode.IsDirectMode() {
+			t.Errorf("DirectMode should be true")
+		}
+		if sshNode.GetInteractPreCommand() != "" {
+			t.Errorf("expected empty pre command, got %s", sshNode.GetInteractPreCommand())
+		}
+		if sshNode.GetInteractPostCommand() != "" {
+			t.Errorf("expected empty post command, got %s", sshNode.GetInteractPostCommand())
+		}
+		if sshNode.GetExitCommand() != "" {
+			t.Errorf("expected empty exit command, got %s", sshNode.GetExitCommand())
+		}
+	})
+
+	t.Run("TelnetNode DirectMode", func(t *testing.T) {
+		telnetNode := NewTelnetNode("host1", "192.168.1.1", "user", "pass", "cisco").
+			WithDirectMode(true)
+		if !telnetNode.IsDirectMode() {
+			t.Errorf("DirectMode should be true")
+		}
+		if telnetNode.GetExitCommand() != "" {
+			t.Errorf("expected empty exit command, got %s", telnetNode.GetExitCommand())
+		}
+	})
+}

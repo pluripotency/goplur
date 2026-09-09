@@ -31,6 +31,7 @@ type Node interface {
 	GetInteractPostCommand() string
 	GetConnectHandler() ConnectHandlerFunc
 	GetExitHandler() ExitHandlerFunc
+	IsDirectMode() bool
 }
 
 type BaseNode struct {
@@ -44,6 +45,7 @@ type BaseNode struct {
 	RootPassword        string             `json:"root_password"`
 	InteractPreCommand  string             `json:"interact_pre_command"`
 	InteractPostCommand string             `json:"interact_post_command"`
+	DirectMode          bool               `json:"direct_mode"`
 	ConnectHandler      ConnectHandlerFunc `json:"-"`
 	ExitHandler         ExitHandlerFunc    `json:"-"`
 }
@@ -55,10 +57,26 @@ func (n *BaseNode) GetPlatform() string                    { return n.Platform }
 func (n *BaseNode) GetWaitPrompt() string                  { return n.WaitPrompt }
 func (n *BaseNode) GetAccessIP() string                    { return n.AccessIP }
 func (n *BaseNode) GetRootPassword() string                { return n.RootPassword }
-func (n *BaseNode) GetInteractPreCommand() string          { return n.InteractPreCommand }
-func (n *BaseNode) GetInteractPostCommand() string         { return n.InteractPostCommand }
+func (n *BaseNode) GetInteractPreCommand() string {
+	if n.DirectMode {
+		return ""
+	}
+	return n.InteractPreCommand
+}
+func (n *BaseNode) GetInteractPostCommand() string {
+	if n.DirectMode {
+		return ""
+	}
+	return n.InteractPostCommand
+}
 func (n *BaseNode) GetConnectHandler() ConnectHandlerFunc  { return n.ConnectHandler }
 func (n *BaseNode) GetExitHandler() ExitHandlerFunc        { return n.ExitHandler }
+func (n *BaseNode) IsDirectMode() bool                     { return n.DirectMode }
+
+func (n *BaseNode) WithDirectMode(enable bool) *BaseNode {
+	n.DirectMode = enable
+	return n
+}
 
 func (n *BaseNode) SetConnectHandler(fn ConnectHandlerFunc) *BaseNode {
 	n.ConnectHandler = fn
@@ -71,6 +89,9 @@ func (n *BaseNode) SetExitHandler(fn ExitHandlerFunc) *BaseNode {
 }
 
 func (n *BaseNode) GetExitCommand() string {
+	if n.DirectMode {
+		return ""
+	}
 	if n.ExitCommand == "" {
 		return "exit"
 	}
@@ -98,6 +119,7 @@ func (n *BashNode) GetAccessIP() string                    { return "" }
 func (n *BashNode) GetRootPassword() string                { return "" }
 func (n *BashNode) GetConnectHandler() ConnectHandlerFunc  { return n.ConnectHandler }
 func (n *BashNode) GetExitHandler() ExitHandlerFunc        { return n.ExitHandler }
+func (n *BashNode) IsDirectMode() bool                     { return false }
 
 func (n *BashNode) GetExitCommand() string {
 	if n.ExitCommand == "" {
@@ -180,6 +202,11 @@ func TelnetEscapeExitHandler(s SessionExecutor, _ Node) error {
 // WithEscapeExit は TelnetEscapeExitHandler を ExitHandler として設定します。
 func (n *TelnetNode) WithEscapeExit() *TelnetNode {
 	n.ExitHandler = TelnetEscapeExitHandler
+	return n
+}
+
+func (n *TelnetNode) WithDirectMode(enable bool) *TelnetNode {
+	n.DirectMode = enable
 	return n
 }
 
@@ -269,7 +296,15 @@ func (n *SshNode) WithExitHandler(fn ExitHandlerFunc) *SshNode {
 	return n
 }
 
+func (n *SshNode) WithDirectMode(enable bool) *SshNode {
+	n.DirectMode = enable
+	return n
+}
+
 func (n *SshNode) GetInteractPreCommand() string {
+	if n.DirectMode {
+		return ""
+	}
 	if n.InteractPreCommand != "" {
 		return n.InteractPreCommand
 	}
@@ -277,6 +312,9 @@ func (n *SshNode) GetInteractPreCommand() string {
 }
 
 func (n *SshNode) GetInteractPostCommand() string {
+	if n.DirectMode {
+		return ""
+	}
 	if n.InteractPostCommand != "" {
 		return n.InteractPostCommand
 	}

@@ -43,15 +43,41 @@ func RunSession(n nd.Node, loginMethod string, logParams *LogParams, fn func(s *
 		}
 	} else {
 		exitCmd := currentNode.GetExitCommand()
-		if len(s.nodes) == 1 {
-			s.actionHandler(exitCmd)
-		} else {
-			s.PopNode()
-			s.Run(exitCmd)
+		if exitCmd != "" {
+			if len(s.nodes) == 1 {
+				s.actionHandler(exitCmd)
+			} else {
+				s.PopNode()
+				s.Run(exitCmd)
+			}
 		}
 	}
 
 	return nil
+}
+
+func enableDirectMode(n nd.Node) {
+	if n == nil {
+		return
+	}
+	switch v := n.(type) {
+	case *nd.SshNode:
+		v.DirectMode = true
+	case *nd.TelnetNode:
+		v.DirectMode = true
+	case *nd.BaseNode:
+		v.DirectMode = true
+	}
+}
+
+func RunDirectSsh(n nd.Node, logParams *LogParams, fn func(s *Session) error) error {
+	enableDirectMode(n)
+	return RunSsh(n, logParams, fn)
+}
+
+func RunDirectTelnet(n nd.Node, logParams *LogParams, fn func(s *Session) error) error {
+	enableDirectMode(n)
+	return RunTelnet(n, logParams, fn)
 }
 
 func RunTelnet(n nd.Node, logParams *LogParams, fn func(s *Session) error) error {

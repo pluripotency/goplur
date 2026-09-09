@@ -83,8 +83,16 @@ func RunSsh(n Node, logParams *LogParams, fn func(s *Session) error) error {
 	return session.RunSsh(n, logParams, fn)
 }
 
+func RunDirectSsh(n Node, logParams *LogParams, fn func(s *Session) error) error {
+	return session.RunDirectSsh(n, logParams, fn)
+}
+
 func RunTelnet(n Node, logParams *LogParams, fn func(s *Session) error) error {
 	return session.RunTelnet(n, logParams, fn)
+}
+
+func RunDirectTelnet(n Node, logParams *LogParams, fn func(s *Session) error) error {
+	return session.RunDirectTelnet(n, logParams, fn)
 }
 
 func Sudo(s *Session, fn func(s *Session) error) error {
